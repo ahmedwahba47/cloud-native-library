@@ -44,7 +44,7 @@ The system architecture diagram above illustrates how the six components communi
 1. **Eureka Server (Port 8761)** - Service Discovery
    - Maintains a registry of all running service instances
    - Services register at startup and send periodic heartbeats
-   - Clients query Eureka to resolve service names to network locations
+   - Clients query Eureka to resolve service names to network locations (Netflix, 2024)
    - Eliminates hardcoded URLs, enabling dynamic scaling
 
 2. **Config Server (Port 8888)** - Centralised Configuration
@@ -55,7 +55,7 @@ The system architecture diagram above illustrates how the six components communi
 
 3. **API Gateway (Port 8080)** - Entry Point
    - Single entry point for all client requests
-   - Routes requests to services using Eureka service discovery (lb:// URIs)
+   - Routes requests to services using Eureka service discovery (lb:// URIs) (Spring, 2024b)
    - Enforces JWT authentication on protected endpoints
    - Provides a token generation endpoint for authentication
 
@@ -130,7 +130,7 @@ public interface LibraryApiClient {
 The `name` attribute matches the Library API's registered name in Eureka. Spring Cloud automatically resolves this to the actual host and port via service discovery. The `fallback` attribute specifies a class that provides default responses when the service is unavailable.
 
 **Why Feign Over RestTemplate/WebClient:**
-Feign provides a declarative HTTP client that reduces boilerplate. The interface-based approach makes service contracts explicit and testable. Combined with Eureka integration, it automatically handles service resolution and client-side load balancing (Spring Cloud, 2024).
+Feign provides a declarative HTTP client that reduces boilerplate. The interface-based approach makes service contracts explicit and testable. Combined with Eureka integration, it automatically handles service resolution and client-side load balancing (Spring, 2024a).
 """
         },
         {
@@ -202,7 +202,7 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: 3
 ```
 
-The circuit breaker monitors the last 10 calls. If 50% or more fail (after a minimum of 5 calls), the circuit opens, blocking further requests for 10 seconds. After this period, the circuit enters half-open state, allowing 3 test calls to determine if the service has recovered.
+The circuit breaker monitors the last 10 calls. If 50% or more fail (after a minimum of 5 calls), the circuit opens, blocking further requests for 10 seconds. After this period, the circuit enters half-open state, allowing 3 test calls to determine if the service has recovered (Resilience4j, 2024).
 
 **Circuit Breaker States:**
 - **Closed (normal):** Requests flow through; failures are counted
@@ -291,7 +291,7 @@ Each service exposes Spring Boot Actuator endpoints for operational monitoring:
 - `/actuator/circuitbreakers` - Circuit breaker state (Catalog Service)
 
 **Why Micrometer Tracing:**
-Micrometer Tracing is the official replacement for Spring Cloud Sleuth in Spring Boot 3.x. It provides a vendor-neutral tracing API, allowing the system to switch from Zipkin to Jaeger or other backends without code changes. The auto-configuration ensures trace context is propagated through Feign clients, RestTemplates, and WebClients automatically (Spring, 2024).
+Micrometer Tracing is the official replacement for Spring Cloud Sleuth in Spring Boot 3.x. It provides a vendor-neutral tracing API, allowing the system to switch from Zipkin to Jaeger or other backends without code changes. The auto-configuration ensures trace context is propagated through Feign clients, RestTemplates, and WebClients automatically (Spring, 2024c).
 """
         },
         {
@@ -411,11 +411,11 @@ Nygard, M. (2018) Release It! Design and Deploy Production-Ready Software. 2nd e
 
 Richardson, C. (2018) Microservices Patterns: With Examples in Java. Shelter Island: Manning Publications.
 
-Spring (2024) Spring Cloud Documentation. Available at: https://spring.io/projects/spring-cloud (Accessed: 10 February 2026).
+Spring (2024a) Spring Cloud Documentation. Available at: https://spring.io/projects/spring-cloud (Accessed: 10 February 2026).
 
-Spring (2024) Spring Cloud Gateway Documentation. Available at: https://docs.spring.io/spring-cloud-gateway/reference/ (Accessed: 10 February 2026).
+Spring (2024b) Spring Cloud Gateway Documentation. Available at: https://docs.spring.io/spring-cloud-gateway/reference/ (Accessed: 10 February 2026).
 
-Spring (2024) Micrometer Tracing Documentation. Available at: https://docs.micrometer.io/tracing/reference/ (Accessed: 10 February 2026).
+Spring (2024c) Micrometer Tracing Documentation. Available at: https://docs.micrometer.io/tracing/reference/ (Accessed: 10 February 2026).
 
 Netflix (2024) Eureka Wiki. Available at: https://github.com/Netflix/eureka/wiki (Accessed: 10 February 2026).
 
