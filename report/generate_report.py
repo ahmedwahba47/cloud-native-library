@@ -137,6 +137,16 @@ def create_styles():
         alignment=TA_CENTER
     ))
 
+    # TOC entry style (clickable link)
+    styles.add(ParagraphStyle(
+        name='TOCEntry',
+        parent=styles['Normal'],
+        fontSize=11,
+        leading=18,
+        textColor=HexColor('#2c5282'),
+        spaceAfter=4
+    ))
+
     return styles
 
 
@@ -320,12 +330,13 @@ def process_content(content, styles):
     return elements
 
 
-def create_section(section, styles):
+def create_section(section, styles, section_idx=0):
     """Create a section with heading and content."""
     elements = []
 
-    # Section heading
-    elements.append(Paragraph(section['title'], styles['SectionHeading']))
+    # Section heading with bookmark anchor
+    anchor = f'<a name="section{section_idx}"/>'
+    elements.append(Paragraph(f'{anchor}{section["title"]}', styles['SectionHeading']))
 
     # Insert diagrams for specific sections
     if 'Architecture Overview' in section['title']:
@@ -371,15 +382,16 @@ def generate_report():
     elements.append(Paragraph('Table of Contents', styles['SectionHeading']))
     elements.append(Spacer(1, 0.2*inch))
 
-    # TOC entries
-    for section in REPORT_CONTENT['sections']:
-        elements.append(Paragraph(section['title'], styles['CustomBody']))
+    # TOC entries (clickable links)
+    for i, section in enumerate(REPORT_CONTENT['sections']):
+        link = f'<a href="#section{i}" color="#2c5282">{section["title"]}</a>'
+        elements.append(Paragraph(link, styles['TOCEntry']))
 
     elements.append(PageBreak())
 
     # Content sections
-    for section in REPORT_CONTENT['sections']:
-        elements.extend(create_section(section, styles))
+    for i, section in enumerate(REPORT_CONTENT['sections']):
+        elements.extend(create_section(section, styles, section_idx=i))
 
     # Build PDF with page numbers
     doc.build(elements, onFirstPage=add_page_number, onLaterPages=add_page_number)

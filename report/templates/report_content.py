@@ -389,15 +389,17 @@ JWTs are stateless, meaning the gateway does not need to maintain session storag
         {
             "title": "9. GitHub Repository",
             "content": """
-**Repository URL:** https://github.com/ahmedwahba47/library-api
+**Cloud-Native Repository:** https://github.com/ahmedwahba47/cloud-native-library
 
-**Cloud-Native System Files:**
-- `cloud-native/eureka-server/` - Service Discovery (Netflix Eureka)
-- `cloud-native/config-server/` - Centralised Configuration (Spring Cloud Config)
-- `cloud-native/api-gateway/` - API Gateway with JWT authentication (Spring Cloud Gateway)
-- `cloud-native/catalog-service/` - Service A (Reading Lists, Recommendations, Feign client, Resilience4j)
-- `cloud-native/library-api/` - Service B (Enhanced with Eureka, Config, Tracing)
-- `cloud-native/docker-compose.yml` - Full system orchestration
+**Repository Structure:**
+- `eureka-server/` - Service Discovery (Netflix Eureka)
+- `config-server/` - Centralised Configuration (Spring Cloud Config)
+- `api-gateway/` - API Gateway with JWT authentication (Spring Cloud Gateway)
+- `catalog-service/` - Service A (Reading Lists, Recommendations, Feign client, Resilience4j)
+- `library-api/` - Service B (Enhanced with Eureka, Config, Tracing)
+- `docker-compose.yml` - Full system orchestration
+
+**Library API (standalone):** https://github.com/ahmedwahba47/library-api
 """
         },
         {
