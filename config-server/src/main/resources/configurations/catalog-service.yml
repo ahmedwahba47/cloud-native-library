@@ -1,0 +1,50 @@
+server:
+  port: 8082
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:catalogdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+library-api:
+  url: http://library-api:8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  tracing:
+    sampling:
+      probability: 1.0
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      libraryApi:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+  retry:
+    instances:
+      libraryApi:
+        max-attempts: 3
+        wait-duration: 1s
+        exponential-backoff-multiplier: 2

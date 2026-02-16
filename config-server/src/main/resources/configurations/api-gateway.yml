@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: library-api
+          uri: lb://library-api
+          predicates:
+            - Path=/api/books/**, /api/loans/**
+        - id: catalog-service
+          uri: lb://catalog-service
+          predicates:
+            - Path=/api/reading-lists/**, /api/recommendations/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    gateway:
+      enabled: true
