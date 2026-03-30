@@ -183,7 +183,8 @@ def create_cover_page(styles):
     student_data = [
         ['Student Name:', REPORT_CONTENT['student']],
         ['Student ID:', REPORT_CONTENT['student_id']],
-        ['Module:', REPORT_CONTENT['module']]
+        ['Module:', REPORT_CONTENT['module']],
+        ['GitHub:', 'https://github.com/ahmedwahba47/cloud-native-library']
     ]
 
     student_table = Table(student_data, colWidths=[2*inch, 3*inch])
