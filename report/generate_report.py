@@ -14,10 +14,10 @@ from reportlab.lib.units import inch
 from reportlab.lib.colors import HexColor
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, PageBreak,
-    Table, TableStyle, Preformatted
+    Table, TableStyle, Preformatted, CondPageBreak
 )
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
-from datetime import datetime
+
 import os
 import sys
 
@@ -58,9 +58,10 @@ def create_styles():
         name='SectionHeading',
         parent=styles['Heading1'],
         fontSize=16,
-        spaceBefore=20,
+        spaceBefore=24,
         spaceAfter=12,
-        textColor=HexColor('#2c5282')
+        textColor=HexColor('#2c5282'),
+        keepWithNext=True
     ))
 
     # Subsection heading style (H2)
@@ -68,9 +69,10 @@ def create_styles():
         name='SubsectionHeading',
         parent=styles['Heading2'],
         fontSize=13,
-        spaceBefore=14,
+        spaceBefore=16,
         spaceAfter=8,
-        textColor=HexColor('#2d3748')
+        textColor=HexColor('#2d3748'),
+        keepWithNext=True
     ))
 
     # Custom body text style
@@ -123,9 +125,10 @@ def create_styles():
         parent=styles['Normal'],
         fontSize=11,
         leading=16,
-        spaceBefore=10,
+        spaceBefore=14,
         spaceAfter=4,
-        fontName='Helvetica-Bold'
+        fontName='Helvetica-Bold',
+        keepWithNext=True
     ))
 
     # Footer style for page numbers
@@ -180,8 +183,7 @@ def create_cover_page(styles):
     student_data = [
         ['Student Name:', REPORT_CONTENT['student']],
         ['Student ID:', REPORT_CONTENT['student_id']],
-        ['Module:', REPORT_CONTENT['module']],
-        ['Date:', datetime.now().strftime('%d %B %Y')]
+        ['Module:', REPORT_CONTENT['module']]
     ]
 
     student_table = Table(student_data, colWidths=[2*inch, 3*inch])
@@ -317,7 +319,6 @@ def process_content(content, styles):
         # Handle standalone bold lines (like Challenge titles)
         if stripped.startswith('**') and stripped.endswith('**'):
             text = stripped[2:-2]
-            elements.append(Spacer(1, 0.1*inch))
             elements.append(Paragraph(f'<b>{text}</b>', styles['SubHeading']))
             i += 1
             continue
@@ -333,6 +334,9 @@ def process_content(content, styles):
 def create_section(section, styles, section_idx=0):
     """Create a section with heading and content."""
     elements = []
+
+    # Ensure at least 3 inches of space for heading + content, otherwise start new page
+    elements.append(CondPageBreak(3*inch))
 
     # Section heading with bookmark anchor
     anchor = f'<a name="section{section_idx}"/>'
@@ -360,7 +364,7 @@ def create_section(section, styles, section_idx=0):
 
 def generate_report():
     """Generate the complete PDF report."""
-    output_path = os.path.join(os.path.dirname(__file__), 'Cloud-Native-System-Report-Ahmed-Wahba-A00336722.pdf')
+    output_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'deliverables', 'reports', '3-Microservices-Cloud-Native-System-Report.pdf')
 
     # Create document
     doc = SimpleDocTemplate(
