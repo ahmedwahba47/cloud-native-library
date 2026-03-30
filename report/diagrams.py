@@ -49,96 +49,174 @@ def _draw_service_box(d, x, y, w, h, name, port, fill=ACCENT, stroke=PRIMARY):
 
 
 def create_system_architecture():
-    """Create a system architecture diagram showing 6 components.
-    Client -> API Gateway -> {Eureka, Library API, Catalog Service, Config Server, Zipkin}
-    Catalog Service -> Library API (inter-service call)
+    """Create a system architecture diagram showing all components.
+    Client -> API Gateway -> {Services}
+    Service A (2 instances) -> Service B (inter-service call via Feign)
+    Service A shares PostgreSQL database
     """
     width = 470
-    height = 310
+    height = 370
     d = Drawing(width, height)
 
-    box_w = 120
-    box_h = 44
-    small_box_w = 100
-    small_box_h = 40
+    box_h = 40
+    svc_w = 140
 
-    # Client box - left side
-    client_x = 10
-    client_y = height / 2 - box_h / 2 + 20
-    d.add(Rect(client_x, client_y, 60, box_h, rx=6, ry=6,
-               fillColor=LIGHT_GRAY, strokeColor=BORDER, strokeWidth=1.5))
-    d.add(String(client_x + 30, client_y + box_h / 2 - 4, 'Client',
-                 fontSize=10, fillColor=TEXT_COLOR, textAnchor='middle',
+    # --- Title ---
+    d.add(String(width / 2, height - 12, 'Cloud-Native System Architecture',
+                 fontSize=11, fillColor=DARK_BLUE, textAnchor='middle',
                  fontName='Helvetica-Bold'))
 
-    # API Gateway - center-left
-    gw_x = 100
-    gw_y = client_y
-    _draw_service_box(d, gw_x, gw_y, box_w, box_h, 'API Gateway', '8080',
-                      fill=HexColor('#e2e8f0'), stroke=DARK_BLUE)
+    # --- Client (far left) ---
+    cx, cy = 10, 195
+    d.add(Rect(cx, cy, 55, 40, rx=4, ry=4,
+               fillColor=LIGHT_GRAY, strokeColor=BORDER, strokeWidth=1.5))
+    d.add(String(cx + 27, cy + 16, 'Client',
+                 fontSize=9, fillColor=TEXT_COLOR, textAnchor='middle',
+                 fontName='Helvetica-Bold'))
 
-    # Arrow: Client -> Gateway
-    _draw_arrow(d, client_x + 60, client_y + box_h / 2,
-                gw_x, gw_y + box_h / 2, color=DARK_BLUE)
+    # --- API Gateway ---
+    gw_x, gw_y = 90, 190
+    d.add(Rect(gw_x, gw_y, 100, 50, rx=6, ry=6,
+               fillColor=HexColor('#e2e8f0'), strokeColor=DARK_BLUE, strokeWidth=2))
+    d.add(String(gw_x + 50, gw_y + 30, 'API Gateway',
+                 fontSize=9, fillColor=TEXT_COLOR, textAnchor='middle',
+                 fontName='Helvetica-Bold'))
+    d.add(String(gw_x + 50, gw_y + 17, ':8080 | JWT | lb://',
+                 fontSize=7, fillColor=BORDER, textAnchor='middle',
+                 fontName='Helvetica'))
+    d.add(String(gw_x + 50, gw_y + 6, 'Load Balanced Routing',
+                 fontSize=6, fillColor=SECONDARY, textAnchor='middle',
+                 fontName='Helvetica-Oblique'))
+    _draw_arrow(d, cx + 55, cy + 20, gw_x, gw_y + 25, color=DARK_BLUE)
 
-    # Right-side services (stacked vertically)
-    svc_x = 280
-    svc_gap = 8
+    # --- Infrastructure row (top) ---
+    infra_y = 310
+    # Eureka
+    d.add(Rect(220, infra_y, svc_w, box_h, rx=6, ry=6,
+               fillColor=ORANGE_LIGHT, strokeColor=ORANGE, strokeWidth=1.5))
+    d.add(String(220 + svc_w / 2, infra_y + 22, 'Eureka Server',
+                 fontSize=9, fillColor=TEXT_COLOR, textAnchor='middle',
+                 fontName='Helvetica-Bold'))
+    d.add(String(220 + svc_w / 2, infra_y + 9, ':8761 | Service Registry',
+                 fontSize=7, fillColor=BORDER, textAnchor='middle',
+                 fontName='Helvetica'))
 
-    services = [
-        ('Eureka Server', '8761', HexColor('#feebc8'), ORANGE),
-        ('Library API (B)', '8081', ACCENT, PRIMARY),
-        ('Catalog Service (A)', '8082', ACCENT, PRIMARY),
-        ('Config Server', '8888', GREEN_LIGHT, GREEN),
-        ('Zipkin Tracing', '9411', LIGHT_GRAY, BORDER),
-    ]
+    # Config Server
+    d.add(Rect(220, infra_y - 52, svc_w, box_h, rx=6, ry=6,
+               fillColor=GREEN_LIGHT, strokeColor=GREEN, strokeWidth=1.5))
+    d.add(String(220 + svc_w / 2, infra_y - 52 + 22, 'Config Server',
+                 fontSize=9, fillColor=TEXT_COLOR, textAnchor='middle',
+                 fontName='Helvetica-Bold'))
+    d.add(String(220 + svc_w / 2, infra_y - 52 + 9, ':8888 | Centralised Config',
+                 fontSize=7, fillColor=BORDER, textAnchor='middle',
+                 fontName='Helvetica'))
 
-    total_svc_h = len(services) * small_box_h + (len(services) - 1) * svc_gap
-    svc_start_y = height / 2 + total_svc_h / 2 + 10
+    # --- Service B: Library API (right side, middle) ---
+    lib_x, lib_y = 220, 185
+    d.add(Rect(lib_x, lib_y, svc_w, 60, rx=6, ry=6,
+               fillColor=ACCENT, strokeColor=PRIMARY, strokeWidth=1.5))
+    d.add(String(lib_x + svc_w / 2, lib_y + 42, 'Library API',
+                 fontSize=10, fillColor=TEXT_COLOR, textAnchor='middle',
+                 fontName='Helvetica-Bold'))
+    d.add(String(lib_x + svc_w / 2, lib_y + 28, 'Service B | :8081',
+                 fontSize=7, fillColor=BORDER, textAnchor='middle',
+                 fontName='Helvetica'))
+    d.add(String(lib_x + svc_w / 2, lib_y + 15, 'Books & Loans',
+                 fontSize=7, fillColor=PRIMARY, textAnchor='middle',
+                 fontName='Helvetica-Oblique'))
+    d.add(String(lib_x + svc_w / 2, lib_y + 4, 'H2 Database',
+                 fontSize=6, fillColor=BORDER, textAnchor='middle',
+                 fontName='Helvetica'))
 
-    svc_positions = {}
-    for i, (name, port, fill, stroke) in enumerate(services):
-        sy = svc_start_y - i * (small_box_h + svc_gap) - small_box_h
-        _draw_service_box(d, svc_x, sy, 170, small_box_h, name, port,
-                          fill=fill, stroke=stroke)
-        svc_positions[name] = (svc_x, sy, 170, small_box_h)
+    # Arrow: Gateway -> Library API
+    _draw_arrow(d, gw_x + 100, gw_y + 25, lib_x, lib_y + 30,
+                color=SECONDARY, stroke_width=1.5)
 
-    # Arrows from Gateway to each service
-    gw_right = gw_x + box_w
-    gw_cy = gw_y + box_h / 2
-    for name, (sx, sy, sw, sh) in svc_positions.items():
-        target_y = sy + sh / 2
-        _draw_arrow(d, gw_right, gw_cy, sx, target_y, color=SECONDARY,
-                    stroke_width=1.0, head_size=5)
+    # --- Service A: Catalog Service (2 instances, bottom) ---
+    cat1_x, cat1_y = 220, 95
+    cat2_x, cat2_y = 220, 40
 
-    # Inter-service arrow: Catalog Service -> Library API
-    cat_pos = svc_positions['Catalog Service (A)']
-    lib_pos = svc_positions['Library API (B)']
-    cat_top = cat_pos[1] + cat_pos[3]
-    lib_bot = lib_pos[1]
-    mid_x = cat_pos[0] + cat_pos[2] - 20
-    _draw_arrow(d, mid_x, cat_top, mid_x, lib_bot,
+    for i, (bx, by) in enumerate([(cat1_x, cat1_y), (cat2_x, cat2_y)]):
+        inst = i + 1
+        d.add(Rect(bx, by, svc_w, 45, rx=6, ry=6,
+                   fillColor=ACCENT, strokeColor=PRIMARY, strokeWidth=1.5))
+        d.add(String(bx + svc_w / 2, by + 30, f'Catalog Service',
+                     fontSize=9, fillColor=TEXT_COLOR, textAnchor='middle',
+                     fontName='Helvetica-Bold'))
+        d.add(String(bx + svc_w / 2, by + 18, f'Instance {inst} | :8082',
+                     fontSize=7, fillColor=BORDER, textAnchor='middle',
+                     fontName='Helvetica'))
+        d.add(String(bx + svc_w / 2, by + 6, 'Reading Lists & Recommendations',
+                     fontSize=6, fillColor=PRIMARY, textAnchor='middle',
+                     fontName='Helvetica-Oblique'))
+
+    # Bracket label for "Service A"
+    d.add(String(210, 80, 'Service A',
+                 fontSize=8, fillColor=PRIMARY, textAnchor='end',
+                 fontName='Helvetica-Bold'))
+    d.add(String(210, 68, '(2 replicas)',
+                 fontSize=7, fillColor=BORDER, textAnchor='end',
+                 fontName='Helvetica'))
+
+    # Arrow: Gateway -> Catalog instances (lb:// routes to both)
+    _draw_arrow(d, gw_x + 70, gw_y, lib_x + 20, cat1_y + 45,
+                color=SECONDARY, stroke_width=1.2)
+    _draw_arrow(d, gw_x + 50, gw_y, lib_x + 20, cat2_y + 45,
+                color=SECONDARY, stroke_width=1.0, head_size=5)
+
+    # Feign arrows: Catalog instances -> Library API
+    _draw_arrow(d, cat1_x + svc_w / 2 + 20, cat1_y + 45, lib_x + svc_w / 2 + 20, lib_y,
                 color=ORANGE, stroke_width=1.5)
-    d.add(String(mid_x + 5, (cat_top + lib_bot) / 2 - 3, 'Feign',
+    _draw_arrow(d, cat2_x + svc_w - 10, cat2_y + 45, lib_x + svc_w - 10, lib_y,
+                color=ORANGE, stroke_width=1.0, head_size=5)
+    d.add(String(lib_x + svc_w + 5, (cat1_y + 45 + lib_y) / 2, 'Feign +',
+                 fontSize=7, fillColor=ORANGE, textAnchor='start',
+                 fontName='Helvetica-Bold'))
+    d.add(String(lib_x + svc_w + 5, (cat1_y + 45 + lib_y) / 2 - 10, 'Circuit Breaker',
                  fontSize=7, fillColor=ORANGE, textAnchor='start',
                  fontName='Helvetica-Oblique'))
 
-    # Legend at bottom
-    legend_y = 8
-    d.add(String(10, legend_y, 'Legend:',
-                 fontSize=8, fillColor=TEXT_COLOR, textAnchor='start',
+    # --- Shared Database (PostgreSQL) ---
+    db_x, db_y = 390, 55
+    # Cylinder shape for database
+    d.add(Rect(db_x, db_y, 65, 40, rx=3, ry=3,
+               fillColor=HexColor('#faf5ff'), strokeColor=HexColor('#805ad5'), strokeWidth=1.5))
+    d.add(String(db_x + 32, db_y + 24, 'PostgreSQL',
+                 fontSize=8, fillColor=TEXT_COLOR, textAnchor='middle',
                  fontName='Helvetica-Bold'))
-    # Gateway arrow
-    d.add(Line(55, legend_y + 3, 75, legend_y + 3,
-               strokeColor=SECONDARY, strokeWidth=1))
-    d.add(String(78, legend_y, 'Routes to',
-                 fontSize=8, fillColor=TEXT_COLOR, textAnchor='start',
+    d.add(String(db_x + 32, db_y + 12, 'Shared DB',
+                 fontSize=7, fillColor=HexColor('#805ad5'), textAnchor='middle',
                  fontName='Helvetica'))
-    # Feign arrow
-    d.add(Line(135, legend_y + 3, 155, legend_y + 3,
-               strokeColor=ORANGE, strokeWidth=1.5))
-    d.add(String(158, legend_y, 'Inter-service call',
-                 fontSize=8, fillColor=TEXT_COLOR, textAnchor='start',
+
+    # Arrows: Both catalog instances -> DB
+    _draw_arrow(d, cat1_x + svc_w, cat1_y + 15, db_x, db_y + 35,
+                color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
+    _draw_arrow(d, cat2_x + svc_w, cat2_y + 25, db_x, db_y + 20,
+                color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
+
+    # --- Zipkin ---
+    d.add(Rect(390, infra_y, 65, box_h, rx=6, ry=6,
+               fillColor=LIGHT_GRAY, strokeColor=BORDER, strokeWidth=1))
+    d.add(String(390 + 32, infra_y + 22, 'Zipkin',
+                 fontSize=9, fillColor=TEXT_COLOR, textAnchor='middle',
+                 fontName='Helvetica-Bold'))
+    d.add(String(390 + 32, infra_y + 9, ':9411',
+                 fontSize=7, fillColor=BORDER, textAnchor='middle',
+                 fontName='Helvetica'))
+
+    # --- Legend ---
+    ly = 8
+    d.add(Line(10, ly + 3, 30, ly + 3, strokeColor=SECONDARY, strokeWidth=1.5))
+    d.add(String(33, ly, 'Gateway routing (lb://)',
+                 fontSize=7, fillColor=TEXT_COLOR, textAnchor='start',
+                 fontName='Helvetica'))
+    d.add(Line(150, ly + 3, 170, ly + 3, strokeColor=ORANGE, strokeWidth=1.5))
+    d.add(String(173, ly, 'Inter-service (Feign)',
+                 fontSize=7, fillColor=TEXT_COLOR, textAnchor='start',
+                 fontName='Helvetica'))
+    d.add(Line(290, ly + 3, 310, ly + 3, strokeColor=HexColor('#805ad5'), strokeWidth=1))
+    d.add(String(313, ly, 'Database connection',
+                 fontSize=7, fillColor=TEXT_COLOR, textAnchor='start',
                  fontName='Helvetica'))
 
     return d

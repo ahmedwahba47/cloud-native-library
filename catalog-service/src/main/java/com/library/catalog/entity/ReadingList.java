@@ -27,7 +27,7 @@ public class ReadingList {
     @Column(name = "created_date")
     private LocalDate createdDate;
 
-    @OneToMany(mappedBy = "readingList", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "readingList", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @Builder.Default
     private List<ReadingListItem> items = new ArrayList<>();
 }

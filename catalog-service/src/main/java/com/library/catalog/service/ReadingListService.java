@@ -75,6 +75,7 @@ public class ReadingListService {
         return toDTO(readingList);
     }
 
+    @Transactional
     public ReadingListDTO addBookFallback(Long readingListId, AddBookRequest request, Throwable t) {
         log.warn("Circuit breaker fallback: Library API unavailable. Error: {}", t.getMessage());
         ReadingList readingList = readingListRepository.findById(readingListId)
@@ -115,29 +116,29 @@ public class ReadingListService {
                 .build();
     }
 
-    @CircuitBreaker(name = "libraryApi", fallbackMethod = "toItemDTOFallback")
     private ReadingListItemDTO toItemDTO(ReadingListItem item) {
-        BookDTO book = libraryApiClient.getBookById(item.getBookId());
-        return ReadingListItemDTO.builder()
-                .id(item.getId())
-                .bookId(item.getBookId())
-                .bookTitle(book.getTitle())
-                .bookAuthor(book.getAuthor())
-                .addedDate(item.getAddedDate())
-                .notes(item.getNotes())
-                .readStatus(item.getReadStatus().name())
-                .build();
-    }
-
-    private ReadingListItemDTO toItemDTOFallback(ReadingListItem item, Throwable t) {
-        return ReadingListItemDTO.builder()
-                .id(item.getId())
-                .bookId(item.getBookId())
-                .bookTitle("Unavailable")
-                .bookAuthor("Unavailable")
-                .addedDate(item.getAddedDate())
-                .notes(item.getNotes())
-                .readStatus(item.getReadStatus().name())
-                .build();
+        try {
+            BookDTO book = libraryApiClient.getBookById(item.getBookId());
+            return ReadingListItemDTO.builder()
+                    .id(item.getId())
+                    .bookId(item.getBookId())
+                    .bookTitle(book.getTitle())
+                    .bookAuthor(book.getAuthor())
+                    .addedDate(item.getAddedDate())
+                    .notes(item.getNotes())
+                    .readStatus(item.getReadStatus().name())
+                    .build();
+        } catch (Exception e) {
+            log.warn("Library API unavailable for book enrichment: {}", e.getMessage());
+            return ReadingListItemDTO.builder()
+                    .id(item.getId())
+                    .bookId(item.getBookId())
+                    .bookTitle("Unavailable")
+                    .bookAuthor("Unavailable")
+                    .addedDate(item.getAddedDate())
+                    .notes(item.getNotes())
+                    .readStatus(item.getReadStatus().name())
+                    .build();
+        }
     }
 }

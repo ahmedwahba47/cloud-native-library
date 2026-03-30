@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: api-gateway
+  config:
+    import: optional:configserver:http://localhost:8888
   cloud:
     gateway:
       discovery:
@@ -19,8 +21,6 @@ spring:
           uri: lb://catalog-service
           predicates:
             - Path=/api/reading-lists/**, /api/recommendations/**
-    config:
-      enabled: false
 
 eureka:
   client:

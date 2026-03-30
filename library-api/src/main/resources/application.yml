@@ -21,9 +21,8 @@ spring:
       hibernate:
         format_sql: true
 
-  cloud:
-    config:
-      enabled: false
+  config:
+    import: optional:configserver:http://localhost:8888
 
 eureka:
   client:

@@ -1,6 +1,6 @@
 # Cloud-Native Library Management System
 
-A distributed microservices system built with **Spring Boot 3.2** and **Spring Cloud 2023.0.4**, demonstrating cloud-native architecture patterns including service discovery, centralized configuration, API gateway with JWT authentication, resilience patterns, and distributed tracing.
+A distributed microservices system built with **Spring Boot 3.2** and **Spring Cloud 2024.0.1**, demonstrating cloud-native architecture patterns including service discovery, centralized configuration, API gateway with JWT authentication, resilience patterns, and distributed tracing.
 
 **Student:** Ahmed Wahba (A00336722)
 **Module:** Microservices Architecture
@@ -116,7 +116,7 @@ All services register with **Eureka** for dynamic discovery. The **Config Server
 |-----------|-----------|---------|
 | Language | Java | 21 |
 | Framework | Spring Boot | 3.2.0 |
-| Cloud | Spring Cloud | 2023.0.4 |
+| Cloud | Spring Cloud | 2024.0.1 |
 | Service Discovery | Netflix Eureka | - |
 | Configuration | Spring Cloud Config | - |
 | Gateway | Spring Cloud Gateway | - |

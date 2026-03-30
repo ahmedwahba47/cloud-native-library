@@ -32,6 +32,8 @@ A monolithic architecture would couple all features into a single deployment uni
 - **Spring Cloud Gateway** for API routing: reactive, non-blocking, integrates with Eureka for dynamic route resolution
 - **Resilience4j** for fault tolerance: lightweight, designed for Java 17+, replaces the deprecated Netflix Hystrix
 - **Micrometer Tracing with Zipkin** for observability: standardised tracing API with automatic context propagation
+
+The system uses **Spring Boot 3.4.4** with **Spring Cloud 2024.0.1** (the latest stable release train) and **Java 21**. All services are containerised using Docker and orchestrated with Docker Compose, with Service A deployed as two replicas sharing a PostgreSQL database.
 """
         },
         {
@@ -69,16 +71,20 @@ The system architecture diagram above illustrates how the six components communi
    - Calls Library API via Feign client to verify book existence
    - Implements circuit breaker and retry patterns for inter-service calls
    - Provides fallback responses when Service B is unavailable
+   - **Deployed with two instances** to demonstrate horizontal scaling and client-side load balancing
 
 6. **Zipkin (Port 9411)** - Distributed Tracing
    - Collects trace data from all services via Micrometer Tracing
    - Visualises request flow across service boundaries
    - Enables latency analysis and bottleneck identification
 
+**Multiple Instances and Load Balancing:**
+The Catalog Service is deployed with two instances using Docker Compose's `deploy: replicas: 2` configuration. Each instance registers independently with Eureka using a unique instance ID (`${spring.application.name}:${random.value}`). The API Gateway routes to the Catalog Service using `lb://catalog-service`, where the `lb://` prefix instructs Spring Cloud Gateway to resolve the service name via Eureka and distribute requests across all registered instances using client-side load balancing. This demonstrates horizontal scaling without any changes to the gateway or other services — new instances simply register with Eureka and begin receiving traffic automatically.
+
 **Communication Patterns:**
 - **Synchronous REST:** Service A calls Service B via Feign (declarative HTTP client)
 - **Service Discovery:** All inter-service communication resolves via Eureka, not hardcoded URLs
-- **Load Balancing:** Spring Cloud LoadBalancer provides client-side load balancing across instances
+- **Client-Side Load Balancing:** The `lb://` URI scheme in gateway routes and Feign clients triggers Spring Cloud LoadBalancer, which distributes requests across all registered instances of a service. This is visible in the Eureka dashboard where both Catalog Service instances appear with unique instance IDs
 """
         },
         {
@@ -113,7 +119,7 @@ eureka:
     prefer-ip-address: true
 ```
 
-Services register using their `spring.application.name` as the service identifier. The `prefer-ip-address` setting ensures containers are reachable across the Docker network.
+Services register using their `spring.application.name` as the service identifier. The `prefer-ip-address` setting ensures containers are reachable across the Docker network. For the Catalog Service, which runs multiple instances, each instance generates a unique instance ID using `${random.value}` to distinguish itself in the registry.
 
 **Service-to-Service Communication:**
 The Catalog Service communicates with the Library API using Spring Cloud OpenFeign:
@@ -154,6 +160,15 @@ spring:
 ```
 
 Configuration files are named by service: `library-api.yml`, `catalog-service.yml`, `api-gateway.yml`. The Config Server is itself registered with Eureka, allowing services to discover it dynamically.
+
+**Client Configuration Import:**
+Each client service uses Spring Boot 3.x's `spring.config.import` property to pull configuration from the Config Server at startup:
+```
+spring:
+  config:
+    import: optional:configserver:http://config-server:8888
+```
+The `optional:` prefix ensures the service can still start if the Config Server is temporarily unavailable, falling back to local configuration. In the Docker Compose deployment, this URL is set via the `SPRING_CONFIG_IMPORT` environment variable, pointing to the Config Server's container hostname.
 
 **Configuration Structure:**
 Each service's configuration is stored in a separate file under `/configurations/`:
@@ -356,7 +371,7 @@ JWTs are stateless, meaning the gateway does not need to maintain session storag
 
 2. **Resilience:** The circuit breaker pattern ensures the Catalog Service remains functional when the Library API is unavailable. Fallback responses provide degraded but usable functionality, preventing cascading failures.
 
-3. **Dynamic Discovery:** Adding a new service instance requires no configuration changes to other services. Eureka handles registration and discovery automatically, enabling horizontal scaling.
+3. **Horizontal Scaling:** The Catalog Service runs two instances, demonstrating that adding service instances requires no configuration changes to other services. Both instances register with Eureka automatically, and the gateway's `lb://` routing distributes traffic across them without any reconfiguration.
 
 4. **Centralised Observability:** Zipkin provides a unified view of request flow across all services, making debugging distributed issues practical.
 
