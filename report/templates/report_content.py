@@ -64,7 +64,7 @@ The system architecture diagram above illustrates how the six components communi
 4. **Library API - Service B (Port 8081)** - Book and Loan Management
    - Owns Book and Loan entities with full CRUD operations
    - Existing REST API from Assignment 1, enhanced with Eureka registration and distributed tracing
-   - H2 in-memory database for development
+   - H2 in-memory database for development; PostgreSQL for production (via profile configuration)
 
 5. **Catalog Service - Service A (Port 8082)** - Reading Lists and Recommendations
    - Owns ReadingList and Recommendation entities
@@ -72,6 +72,7 @@ The system architecture diagram above illustrates how the six components communi
    - Implements circuit breaker and retry patterns for inter-service calls
    - Provides fallback responses when Service B is unavailable
    - **Deployed with two instances** to demonstrate horizontal scaling and client-side load balancing
+   - Both instances share a **PostgreSQL database** (as recommended by the assignment brief for multi-instance deployments), ensuring data consistency across replicas
 
 6. **Zipkin (Port 9411)** - Distributed Tracing
    - Collects trace data from all services via Micrometer Tracing
@@ -259,8 +260,20 @@ public BookDTO getBookById(Long id) {
 }
 ```
 
+**Failure Scenario — Evidence of Testing:**
+To validate the resilience implementation, the Library API container was stopped during operation using `docker stop library-api`. The following behaviour was observed:
+
+1. A request to add a book to a reading list (`POST /api/reading-lists/1/books`) was sent while Service B was down.
+2. The Feign client attempted to reach the Library API. After three retries with exponential backoff (1s, 2s, 4s), all attempts received connection refused errors.
+3. The circuit breaker opened, and the fallback method executed.
+4. The response returned successfully with status 200. The book was added to the reading list, but the notes field contained `[unverified - library service unavailable]`, indicating the fallback path.
+5. A subsequent `GET /api/reading-lists/1` also succeeded, but book titles appeared as "Unavailable" because the enrichment Feign call also failed gracefully.
+6. After restarting Service B with `docker start library-api`, the circuit breaker transitioned from OPEN to HALF-OPEN, tested a few calls, and returned to CLOSED. Subsequent requests were fully verified again.
+
+This confirms the system degrades gracefully rather than failing entirely — users can continue using reading lists in a reduced capacity while the dependent service recovers.
+
 **Why This Approach:**
-The combination of retry, circuit breaker, and fallback provides defence in depth. Retries handle transient failures (network blips). The circuit breaker prevents resource exhaustion during sustained failures. Fallbacks maintain partial system functionality, allowing users to continue working even when a dependency is down.
+The combination of retry, circuit breaker, and fallback provides defence in depth. Retries handle transient failures (network blips). The circuit breaker prevents resource exhaustion during sustained failures — without it, every request would wait for a TCP timeout, exhausting the thread pool and causing Service A itself to become unresponsive (a cascading failure). Fallbacks maintain partial system functionality, allowing users to continue working even when a dependency is down. Nygard (2018) identifies this pattern — "bulkheads and circuit breakers" — as essential for production stability in distributed systems.
 """
         },
         {
@@ -298,6 +311,12 @@ A sampling probability of 1.0 traces every request (appropriate for development;
 - **Latency breakdown:** Time spent in each service, identifying bottlenecks
 - **Error location:** Which service in the chain caused a failure
 - **Dependency mapping:** Auto-generated service dependency graph
+
+**Interpreting Trace Data — Concrete Examples:**
+
+*Happy-path trace (adding a book to a reading list):* A trace for `POST /api/reading-lists/1/books` shows three spans. The first span is the API Gateway (~2ms for JWT validation and routing). The second span is the Catalog Service (~15ms for business logic). Within the Catalog Service span, a child span shows the Feign call to the Library API (~8ms for book verification). The total request duration is approximately 25ms. This breakdown confirms that inter-service latency is minimal and the Feign call to Service B is the largest contributor to response time — important context for capacity planning.
+
+*Failure trace (Service B unavailable):* When the Library API is stopped, a trace for the same endpoint shows a dramatically different profile. The Catalog Service span extends to ~7 seconds — the three retry attempts (1s + 2s + 4s) are visible as the span duration. No Library API span exists because the connection was refused. The fallback execution appears as a brief span at the end. This trace data makes it immediately clear where the failure occurred, how long retries consumed, and that the fallback executed successfully — information that would be extremely difficult to reconstruct from individual service logs alone.
 
 **Health Endpoints:**
 Each service exposes Spring Boot Actuator endpoints for operational monitoring:
@@ -385,20 +404,31 @@ JWTs are stateless, meaning the gateway does not need to maintain session storag
 
 3. **Single Eureka Instance:** Production systems run multiple Eureka instances for high availability. Our single instance is a single point of failure. Mitigation: services cache the registry locally, allowing continued operation if Eureka temporarily fails.
 
+**Challenges Encountered:**
+
+1. **Version Compatibility:** Spring Cloud 2023.0.4 introduced a Gateway version (4.1.6) that required Spring Framework 6.2.x, while Spring Boot 3.2.0 shipped with Framework 6.1.x. This caused a `NoSuchMethodError` at runtime in the Gateway's routing filter. The fix was upgrading to Spring Boot 3.4.4 with Spring Cloud 2024.0.1 — a reminder that in the Spring Cloud ecosystem, the BOM (Bill of Materials) must be version-aligned across all services.
+
+2. **Multi-Instance Data Consistency:** Deploying two Catalog Service instances with H2 in-memory databases meant each instance had its own isolated data. A reading list created on instance 1 would not exist on instance 2. The solution was introducing a shared PostgreSQL database, which aligns with the Twelve-Factor App principle of treating backing services as attached resources (Wiggins, 2017).
+
+3. **Fallback Transaction Management:** The circuit breaker's fallback method initially failed because it ran outside the original transaction boundary. The fallback needed its own `@Transactional` annotation to persist data. Additionally, Resilience4j's `@CircuitBreaker` annotation does not intercept private methods (due to Spring AOP's proxy-based model), which required restructuring the code to handle Feign failures via try-catch in private helper methods.
+
 **Limitations:**
 
-- No automated testing of the distributed system (end-to-end tests across services)
-- No container orchestration (Kubernetes would provide self-healing, scaling, and rolling updates)
-- No centralised logging aggregation (ELK stack or similar)
-- No rate limiting at the gateway
-- No service mesh for advanced traffic management
+- No automated end-to-end testing across services in a containerised environment
+- No container orchestration — Kubernetes would provide self-healing, auto-scaling, and rolling updates
+- No centralised log aggregation — debugging requires checking logs across multiple containers
+- No rate limiting or request throttling at the gateway
+- No service mesh for advanced traffic management, mTLS, or observability at the network layer
 
 **Suggested Improvements:**
 
-1. **Kubernetes Deployment** - Replace Docker Compose with Kubernetes manifests for production-grade orchestration with auto-scaling, self-healing, and rolling updates
-2. **Asynchronous Events** - Introduce Apache Kafka or RabbitMQ for event-driven communication between services, reducing temporal coupling
-3. **Centralised Logging** - Add ELK stack (Elasticsearch, Logstash, Kibana) for aggregated log search across all services
-4. **Mutual TLS** - Implement mTLS between services using a service mesh (Istio) for zero-trust networking
+1. **Kubernetes Deployment** — Replace Docker Compose with Kubernetes manifests for production-grade orchestration. Kubernetes provides horizontal pod autoscaling based on CPU/memory, self-healing through liveness probes, rolling deployments with zero downtime, and native service discovery via kube-dns — which could potentially replace Eureka entirely.
+
+2. **Asynchronous Events** — Introduce Apache Kafka or RabbitMQ for event-driven communication between services. When a book is updated in Service B, an event would notify Service A asynchronously, reducing temporal coupling and eliminating the synchronous latency dependency.
+
+3. **Centralised Logging** — Add an ELK stack (Elasticsearch, Logstash, Kibana) for aggregated, searchable logs across all services. Combined with distributed tracing, this would provide complete observability: traces for request flow, logs for detailed debugging, and metrics for system-level health.
+
+4. **Mutual TLS** — Implement mTLS between services using a service mesh (Istio or Linkerd) to enforce zero-trust networking. Currently, inter-service communication trusts the Docker network boundary, which would be insufficient in a shared infrastructure environment.
 """
         },
         {
