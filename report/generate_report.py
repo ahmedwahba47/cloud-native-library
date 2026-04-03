@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 # Add templates directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'templates'))
 from report_content import REPORT_CONTENT
-from diagrams import create_system_architecture, create_circuit_breaker_states
+from diagrams import create_system_architecture, create_circuit_breaker_states, create_request_flow, create_trace_timeline
 
 
 def create_styles():
@@ -352,6 +352,16 @@ def create_section(section, styles, section_idx=0):
     if 'Resilience' in section['title']:
         elements.append(Spacer(1, 0.1*inch))
         elements.append(create_circuit_breaker_states())
+        elements.append(Spacer(1, 0.1*inch))
+
+    if 'Service Discovery' in section['title']:
+        elements.append(Spacer(1, 0.1*inch))
+        elements.append(create_request_flow())
+        elements.append(Spacer(1, 0.1*inch))
+
+    if 'Observability' in section['title']:
+        elements.append(Spacer(1, 0.1*inch))
+        elements.append(create_trace_timeline())
         elements.append(Spacer(1, 0.1*inch))
 
     # Process content

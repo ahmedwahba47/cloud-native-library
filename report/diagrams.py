@@ -326,3 +326,124 @@ def create_circuit_breaker_states():
                  fontName='Helvetica-Oblique'))
 
     return d
+
+
+def create_request_flow():
+    """Sequence-style diagram: Client -> Gateway -> Catalog -> Library API."""
+    width = 470
+    height = 280
+    d = Drawing(width, height)
+
+    d.add(String(width / 2, height - 10, 'Request Flow: Adding a Book to a Reading List',
+                 fontSize=10, fillColor=DARK_BLUE, textAnchor='middle',
+                 fontName='Helvetica-Bold'))
+
+    cols = [60, 175, 295, 410]
+    names = ['Client', 'API Gateway', 'Catalog Service', 'Library API']
+    colors = [LIGHT_GRAY, HexColor('#e2e8f0'), ACCENT, ACCENT]
+    strokes = [BORDER, DARK_BLUE, PRIMARY, PRIMARY]
+
+    top_y = height - 35
+    box_w, box_h = 90, 28
+
+    for i, (cx, name, fill, stroke) in enumerate(zip(cols, names, colors, strokes)):
+        d.add(Rect(cx - box_w / 2, top_y - box_h, box_w, box_h, rx=4, ry=4,
+                   fillColor=fill, strokeColor=stroke, strokeWidth=1.5))
+        d.add(String(cx, top_y - box_h / 2 - 2, name,
+                     fontSize=8, fillColor=TEXT_COLOR, textAnchor='middle',
+                     fontName='Helvetica-Bold'))
+        d.add(Line(cx, top_y - box_h, cx, 15,
+                   strokeColor=BORDER, strokeWidth=0.5, strokeDashArray=[4, 3]))
+
+    y = top_y - box_h - 18
+    step = 30
+
+    messages = [
+        (0, 1, 'POST /api/reading-lists/1/books', DARK_BLUE),
+        (1, 2, 'Route via lb://catalog-service', SECONDARY),
+        (2, 3, 'Feign: GET /api/books/1 (via Eureka)', ORANGE),
+        (3, 2, 'BookDTO {title, author}', ORANGE),
+        (2, 1, 'ReadingListDTO (enriched)', SECONDARY),
+        (1, 0, '200 OK + book data from Service B', DARK_BLUE),
+    ]
+
+    labels_right = [
+        'JWT validated',
+        'Eureka resolves name',
+        'Book verification',
+        'Data enrichment',
+        'Response assembled',
+        'End-to-end complete',
+    ]
+
+    for i, ((src, dst, label, color), rlabel) in enumerate(zip(messages, labels_right)):
+        my = y - i * step
+        sx, dx = cols[src], cols[dst]
+        _draw_arrow(d, sx, my, dx, my, color=color, stroke_width=1.2, head_size=5)
+        mid = (sx + dx) / 2
+        d.add(String(mid, my + 5, label,
+                     fontSize=7, fillColor=color, textAnchor='middle',
+                     fontName='Helvetica'))
+        # Step number
+        d.add(String(10, my - 3, str(i + 1),
+                     fontSize=8, fillColor=PRIMARY, textAnchor='middle',
+                     fontName='Helvetica-Bold'))
+        # Right-side annotation
+        d.add(String(462, my - 3, rlabel,
+                     fontSize=6, fillColor=BORDER, textAnchor='end',
+                     fontName='Helvetica-Oblique'))
+
+    return d
+
+
+def create_trace_timeline():
+    """Zipkin-style trace timeline showing spans across 3 services."""
+    width = 470
+    height = 160
+    d = Drawing(width, height)
+
+    d.add(String(width / 2, height - 10, 'Distributed Trace: Happy Path (~25ms total)',
+                 fontSize=10, fillColor=DARK_BLUE, textAnchor='middle',
+                 fontName='Helvetica-Bold'))
+
+    axis_y = 22
+    axis_left = 140
+    axis_right = 450
+    d.add(Line(axis_left, axis_y, axis_right, axis_y,
+               strokeColor=BORDER, strokeWidth=1))
+    for t in [0, 5, 10, 15, 20, 25]:
+        tx = axis_left + (t / 25) * (axis_right - axis_left)
+        d.add(Line(tx, axis_y - 3, tx, axis_y + 3,
+                   strokeColor=BORDER, strokeWidth=0.5))
+        d.add(String(tx, axis_y - 12, f'{t}ms',
+                     fontSize=6, fillColor=BORDER, textAnchor='middle',
+                     fontName='Helvetica'))
+
+    spans = [
+        ('API Gateway', 0, 25, HexColor('#e2e8f0'), DARK_BLUE, 115),
+        ('Catalog Service', 2, 23, ACCENT, PRIMARY, 80),
+        ('Library API', 8, 16, HexColor('#feebc8'), ORANGE, 45),
+    ]
+
+    bar_h = 22
+    for name, start_ms, end_ms, fill, stroke, row_y in spans:
+        x1 = axis_left + (start_ms / 25) * (axis_right - axis_left)
+        x2 = axis_left + (end_ms / 25) * (axis_right - axis_left)
+        bw = x2 - x1
+
+        d.add(String(axis_left - 8, row_y + bar_h / 2 - 3, name,
+                     fontSize=8, fillColor=TEXT_COLOR, textAnchor='end',
+                     fontName='Helvetica-Bold'))
+        d.add(Rect(x1, row_y, bw, bar_h, rx=3, ry=3,
+                   fillColor=fill, strokeColor=stroke, strokeWidth=1.2))
+        duration = end_ms - start_ms
+        d.add(String(x1 + bw / 2, row_y + bar_h / 2 - 3, f'{duration}ms',
+                     fontSize=7, fillColor=TEXT_COLOR, textAnchor='middle',
+                     fontName='Helvetica-Bold'))
+
+    d.add(String(axis_left, height - 28,
+                 'Trace ID: 69ca90f8...  (same ID propagated across all services via HTTP headers)',
+                 fontSize=7, fillColor=BORDER, textAnchor='start',
+                 fontName='Helvetica-Oblique'))
+
+    return d
