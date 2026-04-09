@@ -1,10 +1,7 @@
 package com.library.catalog.dto;
 
-import lombok.*;
-
 import java.time.LocalDate;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class BookDTO {
     private Long id;
     private String title;
@@ -14,4 +11,57 @@ public class BookDTO {
     private String genre;
     private Integer totalCopies;
     private Integer availableCopies;
+
+    public BookDTO() {}
+
+    public BookDTO(Long id, String title, String author, String isbn, LocalDate publishedDate, String genre, Integer totalCopies, Integer availableCopies) {
+        this.id = id;
+        this.title = title;
+        this.author = author;
+        this.isbn = isbn;
+        this.publishedDate = publishedDate;
+        this.genre = genre;
+        this.totalCopies = totalCopies;
+        this.availableCopies = availableCopies;
+    }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getAuthor() { return author; }
+    public void setAuthor(String author) { this.author = author; }
+    public String getIsbn() { return isbn; }
+    public void setIsbn(String isbn) { this.isbn = isbn; }
+    public LocalDate getPublishedDate() { return publishedDate; }
+    public void setPublishedDate(LocalDate publishedDate) { this.publishedDate = publishedDate; }
+    public String getGenre() { return genre; }
+    public void setGenre(String genre) { this.genre = genre; }
+    public Integer getTotalCopies() { return totalCopies; }
+    public void setTotalCopies(Integer totalCopies) { this.totalCopies = totalCopies; }
+    public Integer getAvailableCopies() { return availableCopies; }
+    public void setAvailableCopies(Integer availableCopies) { this.availableCopies = availableCopies; }
+
+    public static Builder builder() { return new Builder(); }
+
+    public static class Builder {
+        private Long id;
+        private String title;
+        private String author;
+        private String isbn;
+        private LocalDate publishedDate;
+        private String genre;
+        private Integer totalCopies;
+        private Integer availableCopies;
+
+        public Builder id(Long id) { this.id = id; return this; }
+        public Builder title(String title) { this.title = title; return this; }
+        public Builder author(String author) { this.author = author; return this; }
+        public Builder isbn(String isbn) { this.isbn = isbn; return this; }
+        public Builder publishedDate(LocalDate publishedDate) { this.publishedDate = publishedDate; return this; }
+        public Builder genre(String genre) { this.genre = genre; return this; }
+        public Builder totalCopies(Integer totalCopies) { this.totalCopies = totalCopies; return this; }
+        public Builder availableCopies(Integer availableCopies) { this.availableCopies = availableCopies; return this; }
+        public BookDTO build() { return new BookDTO(id, title, author, isbn, publishedDate, genre, totalCopies, availableCopies); }
+    }
 }

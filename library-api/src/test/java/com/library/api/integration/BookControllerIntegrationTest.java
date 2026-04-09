@@ -295,8 +295,9 @@ class BookControllerIntegrationTest {
         @Test
         @DisplayName("should paginate correctly with custom page size")
         void shouldPaginateCorrectly() throws Exception {
+            // one-indexed-parameters is true, so page=1 is the first page
             mockMvc.perform(get("/api/books")
-                            .param("page", "0")
+                            .param("page", "1")
                             .param("size", "5"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content", hasSize(5)))
@@ -308,8 +309,9 @@ class BookControllerIntegrationTest {
         @Test
         @DisplayName("should return correct page number")
         void shouldReturnCorrectPage() throws Exception {
+            // one-indexed-parameters is true, so page=2 maps to internal page 1
             mockMvc.perform(get("/api/books")
-                            .param("page", "1")
+                            .param("page", "2")
                             .param("size", "5"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content", hasSize(5)))
