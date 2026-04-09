@@ -236,7 +236,7 @@ resilience4j:
         exponential-backoff-multiplier: 2
 ```
 
-Before the circuit breaker opens, transient failures are retried up to 3 times with exponential backoff (1s, 2s, 4s). This handles temporary network glitches without immediately tripping the circuit breaker.
+Before the circuit breaker opens, transient failures are retried up to 3 times with exponential backoff (waits of 1s and 2s between attempts). This handles temporary network glitches without immediately tripping the circuit breaker.
 
 **Fallback Responses:**
 When the circuit is open or retries are exhausted, fallback methods provide degraded but functional responses:
@@ -264,11 +264,61 @@ public BookDTO getBookById(Long id) {
 To validate the resilience implementation, the Library API container was stopped during operation using `docker stop library-api`. The following behaviour was observed:
 
 1. A request to add a book to a reading list (`POST /api/reading-lists/1/books`) was sent while Service B was down.
-2. The Feign client attempted to reach the Library API. After three retries with exponential backoff (1s, 2s, 4s), all attempts received connection refused errors.
+2. The Feign client attempted to reach the Library API. After three retries with exponential backoff (1s, 2s), all attempts received connection refused errors.
 3. The circuit breaker opened, and the fallback method executed.
 4. The response returned successfully with status 200. The book was added to the reading list, but the notes field contained `[unverified - library service unavailable]`, indicating the fallback path.
-5. A subsequent `GET /api/reading-lists/1` also succeeded, but book titles appeared as "Unavailable" because the enrichment Feign call also failed gracefully.
-6. After restarting Service B with `docker start library-api`, the circuit breaker transitioned from OPEN to HALF-OPEN, tested a few calls, and returned to CLOSED. Subsequent requests were fully verified again.
+
+**Captured fallback response (POST /api/reading-lists/1/books while Service B is down):**
+```json
+{
+  "id": 1,
+  "name": "Cloud Reading",
+  "ownerName": "Ahmed",
+  "description": "Spring Cloud books",
+  "createdDate": "2026-04-09",
+  "items": [
+    {
+      "id": 2,
+      "bookId": 2,
+      "bookTitle": null,
+      "bookAuthor": null,
+      "addedDate": "2026-04-09",
+      "notes": "Recommended [unverified - library service unavailable]",
+      "readStatus": "TO_READ"
+    }
+  ]
+}
+```
+
+The `[unverified - library service unavailable]` suffix in the notes field confirms the fallback path executed. The book was persisted without verification, maintaining write availability.
+
+5. A subsequent `GET /api/reading-lists/1` also succeeded, but book titles appeared as "Unavailable" because the enrichment Feign call also failed gracefully:
+
+**Captured degraded GET response (enrichment fails gracefully):**
+```json
+{
+  "items": [
+    {
+      "bookId": 1,
+      "bookTitle": "The Great Gatsby",
+      "bookAuthor": "F. Scott Fitzgerald",
+      "notes": "Essential reading",
+      "readStatus": "TO_READ"
+    },
+    {
+      "bookId": 2,
+      "bookTitle": "Unavailable",
+      "bookAuthor": "Unavailable",
+      "notes": "Recommended [unverified - library service unavailable]",
+      "readStatus": "TO_READ"
+    }
+  ]
+}
+```
+
+Item 1 (added when Service B was running) retains its verified title; item 2 (added via fallback) shows "Unavailable" for enrichment fields. The contrast between the two items clearly demonstrates graceful degradation.
+
+6. After restarting Service B with `docker start library-api`, the circuit breaker transitioned from OPEN to HALF-OPEN, tested a few calls, and returned to CLOSED. Subsequent requests were fully verified again, and item 2's title resolved correctly on the next retrieval.
 
 This confirms the system degrades gracefully rather than failing entirely — users can continue using reading lists in a reduced capacity while the dependent service recovers.
 
