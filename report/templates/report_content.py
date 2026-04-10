@@ -31,7 +31,9 @@ A monolithic architecture would couple all features into a single deployment uni
 - **Netflix Eureka** for service discovery: mature, battle-tested in production at scale
 - **Spring Cloud Gateway** for API routing: reactive, non-blocking, integrates with Eureka for dynamic route resolution
 - **Resilience4j** for fault tolerance: lightweight, designed for Java 17+, replaces the deprecated Netflix Hystrix
+- **Spring Cloud Security** with OAuth2 Resource Server for authentication: standard Spring Security approach with reactive `SecurityWebFilterChain` and `NimbusReactiveJwtDecoder` for JWT validation
 - **Micrometer Tracing with Zipkin** for observability: standardised tracing API with automatic context propagation
+- **Grafana, Loki, and Promtail** for centralised log aggregation: Promtail collects container logs via Docker service discovery, Loki indexes and stores them, Grafana provides query dashboards
 
 The system uses **Spring Boot 3.4.4** with **Spring Cloud 2024.0.1** (the latest stable release train) and **Java 21**. All services are containerised using Docker and orchestrated with Docker Compose, with Service A deployed as two replicas sharing a PostgreSQL database.
 """
@@ -39,7 +41,7 @@ The system uses **Spring Boot 3.4.4** with **Spring Cloud 2024.0.1** (the latest
         {
             "title": "2. Architecture Overview",
             "content": """
-The system architecture diagram above illustrates how the six components communicate over a shared Docker network.
+The system architecture diagram above illustrates how the seven components communicate over a shared Docker network.
 
 **Component Responsibilities:**
 
@@ -58,13 +60,13 @@ The system architecture diagram above illustrates how the six components communi
 3. **API Gateway (Port 8080)** - Entry Point
    - Single entry point for all client requests
    - Routes requests to services using Eureka service discovery (lb:// URIs) (Spring, 2024b)
-   - Enforces JWT authentication on protected endpoints
-   - Provides a token generation endpoint for authentication
+   - Enforces authentication using Spring Security's OAuth2 Resource Server with JWT validation
+   - Provides a token generation endpoint; validation handled by Spring Security's filter chain
 
 4. **Library API - Service B (Port 8081)** - Book and Loan Management
    - Owns Book and Loan entities with full CRUD operations
    - Existing REST API from Assignment 1, enhanced with Eureka registration and distributed tracing
-   - H2 in-memory database for development; PostgreSQL for production (via profile configuration)
+   - PostgreSQL database for all environments
 
 5. **Catalog Service - Service A (Port 8082)** - Reading Lists and Recommendations
    - Owns ReadingList and Recommendation entities
@@ -78,6 +80,11 @@ The system architecture diagram above illustrates how the six components communi
    - Collects trace data from all services via Micrometer Tracing
    - Visualises request flow across service boundaries
    - Enables latency analysis and bottleneck identification
+
+7. **Grafana + Loki + Promtail (Port 3000)** - Centralised Log Aggregation
+   - Promtail discovers and collects logs from all Docker containers via Docker socket
+   - Loki indexes and stores log data with label-based querying
+   - Grafana provides dashboards for querying logs and correlating with distributed traces
 
 **Multiple Instances and Load Balancing:**
 The Catalog Service is deployed with two instances using Docker Compose's `deploy: replicas: 2` configuration. Each instance registers independently with Eureka using a unique instance ID (`${spring.application.name}:${random.value}`). The API Gateway routes to the Catalog Service using `lb://catalog-service`, where the `lb://` prefix instructs Spring Cloud Gateway to resolve the service name via Eureka and distribute requests across all registered instances using client-side load balancing. This demonstrates horizontal scaling without any changes to the gateway or other services — new instances simply register with Eureka and begin receiving traffic automatically.
@@ -374,6 +381,15 @@ Each service exposes Spring Boot Actuator endpoints for operational monitoring:
 - `/actuator/info` - Service metadata
 - `/actuator/circuitbreakers` - Circuit breaker state (Catalog Service)
 
+**Centralised Log Aggregation with Grafana, Loki, and Promtail:**
+Alongside distributed tracing, the system implements centralised log aggregation using the Grafana stack:
+
+- **Promtail** runs as a sidecar container that discovers all Docker containers via the Docker socket and streams their stdout/stderr logs to Loki
+- **Loki** stores and indexes logs using a label-based model (container name, job), making logs searchable without full-text indexing overhead
+- **Grafana** (Port 3000) provides a unified dashboard for querying logs via LogQL. A developer can filter by container (e.g., `{container="catalog-service"}`) and search for specific trace IDs to correlate distributed traces with detailed log output
+
+This addresses a key limitation of trace-only observability: while Zipkin shows *where* a request went and how long each hop took, Loki shows *what each service logged* during that request. Together, they provide complete observability — traces for request flow and timing, logs for detailed behaviour and error messages.
+
 **Why Micrometer Tracing:**
 Micrometer Tracing is the official replacement for Spring Cloud Sleuth in Spring Boot 3.x. It provides a vendor-neutral tracing API, allowing the system to switch from Zipkin to Jaeger or other backends without code changes. The auto-configuration ensures trace context is propagated through Feign clients, RestTemplates, and WebClients automatically (Spring, 2024c).
 """
@@ -384,51 +400,61 @@ Micrometer Tracing is the official replacement for Spring Cloud Sleuth in Spring
 **Security in Microservices:**
 A distributed system has a larger attack surface than a monolith. Each service is a potential entry point, and inter-service communication must be secured to prevent unauthorised access. The API Gateway pattern centralises authentication at the system boundary, reducing the security burden on individual services (Richardson, 2018).
 
-**JWT Authentication at the Gateway:**
-The API Gateway enforces JWT (JSON Web Token) authentication using a global filter:
+**Spring Cloud Security OAuth2 Resource Server:**
+The API Gateway enforces JWT (JSON Web Token) authentication using Spring Security's OAuth2 Resource Server support with a reactive security configuration:
 
 ```
-public class JwtAuthenticationFilter
-    implements GlobalFilter, Ordered {
-
-    public Mono<Void> filter(
-            ServerWebExchange exchange,
-            GatewayFilterChain chain) {
-        // Extract and validate JWT from
-        // Authorization header
+@Configuration
+@EnableWebFluxSecurity
+public class SecurityConfig {
+    @Bean
+    public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+        return http
+            .csrf(ServerHttpSecurity.CsrfSpec::disable)
+            .authorizeExchange(exchanges -> exchanges
+                .pathMatchers("/api/auth/**").permitAll()
+                .pathMatchers("/actuator/**").permitAll()
+                .anyExchange().authenticated()
+            )
+            .oauth2ResourceServer(oauth2 -> oauth2
+                .jwt(jwt -> jwt.jwtDecoder(reactiveJwtDecoder()))
+            )
+            .build();
     }
 }
 ```
+
+This uses Spring Security's built-in `SecurityWebFilterChain` rather than a custom global filter, leveraging the framework's well-tested authentication pipeline.
 
 **Authentication Flow:**
 1. Client requests a token from `POST /api/auth/token` with credentials
 2. Gateway generates a signed JWT with subject claim and expiration
 3. Client includes the JWT in subsequent requests as `Authorization: Bearer <token>`
-4. Gateway validates the token signature and expiration before routing
-5. Invalid or expired tokens receive HTTP 401 Unauthorized
+4. Spring Security's OAuth2 Resource Server filter chain automatically extracts and validates the token using `NimbusReactiveJwtDecoder`
+5. Invalid or expired tokens receive HTTP 401 Unauthorized — handled by Spring Security's default authentication entry point
 
 **Token Structure:**
-JWTs are signed using HMAC-SHA256 with a configurable secret key. The token contains:
+JWTs are signed using HMAC-SHA256 with a configurable secret key and validated by Spring Security's built-in `NimbusReactiveJwtDecoder`. The token contains:
 - **Subject:** Username
 - **Issued At:** Token creation timestamp
 - **Expiration:** Token validity period (default: 1 hour)
 
 **Open Endpoints:**
-The token generation endpoint (`/api/auth/token`) and actuator health endpoints are excluded from authentication to allow initial token acquisition and infrastructure monitoring.
+The token generation endpoint (`/api/auth/**`) and actuator health endpoints are excluded from authentication via `permitAll()` path matchers to allow initial token acquisition and infrastructure monitoring.
 
 **Trust Boundaries:**
-- **External boundary (Gateway):** All external requests must include a valid JWT
+- **External boundary (Gateway):** All external requests must include a valid JWT, enforced by Spring Security's filter chain
 - **Internal boundary (Service-to-Service):** Services communicate within the Docker network without JWT verification, as the network boundary provides isolation
 - **Data boundary:** Each service owns its database; cross-service data access is only via REST APIs
 
 **Security Limitations and Future Improvements:**
-- Current implementation uses a shared secret; production should use RSA key pairs
+- Current implementation uses a symmetric HMAC secret; production should use RSA key pairs or an external identity provider (e.g., Keycloak)
 - No role-based access control (RBAC); all authenticated users have equal access
 - Inter-service communication trusts the network boundary; mutual TLS (mTLS) would add defence in depth
 - Token refresh is not implemented; clients must request new tokens after expiration
 
-**Why JWT Over Session-Based Authentication:**
-JWTs are stateless, meaning the gateway does not need to maintain session storage. This aligns with the Twelve-Factor App principle of stateless processes and enables horizontal scaling of the gateway without session affinity (Wiggins, 2017).
+**Why OAuth2 Resource Server:**
+Using Spring Security's OAuth2 Resource Server is the standard approach for JWT validation in Spring Cloud Gateway. It integrates natively with the reactive WebFlux stack, leverages the framework's battle-tested security filters, and aligns with the Twelve-Factor App principle of stateless processes — no session storage is required, enabling horizontal scaling of the gateway without session affinity (Wiggins, 2017). This approach also provides a clear upgrade path to external identity providers (OAuth2 Authorization Servers) without changing the gateway's security configuration.
 """
         },
         {
@@ -442,13 +468,13 @@ JWTs are stateless, meaning the gateway does not need to maintain session storag
 
 3. **Horizontal Scaling:** The Catalog Service runs two instances, demonstrating that adding service instances requires no configuration changes to other services. Both instances register with Eureka automatically, and the gateway's `lb://` routing distributes traffic across them without any reconfiguration.
 
-4. **Centralised Observability:** Zipkin provides a unified view of request flow across all services, making debugging distributed issues practical.
+4. **Centralised Observability:** Zipkin provides distributed tracing across all services, while Grafana with Loki provides centralised log aggregation. Together, they offer complete observability — traces for request flow and timing, logs for detailed behaviour and error messages.
 
-5. **Gateway Security:** JWT authentication at the gateway provides a single enforcement point, simplifying the security model for individual services.
+5. **Gateway Security:** Spring Security's OAuth2 Resource Server with JWT validation at the gateway provides a single enforcement point using production-standard Spring Security patterns, simplifying the security model for individual services.
 
 **Conscious Trade-offs:**
 
-1. **H2 vs PostgreSQL:** Development uses H2 in-memory databases for speed. This means database-specific features (stored procedures, advanced indexes) are not tested. Mitigation: the system is designed for database portability via JPA abstraction.
+1. **PostgreSQL for All Environments:** All services use PostgreSQL in development, Docker, and production. H2 is retained only for automated test execution, where in-memory speed is beneficial. This eliminates SQL dialect mismatches between development and production — a common source of deployment failures.
 
 2. **Synchronous Communication:** Service A calls Service B synchronously via REST. Under high load, this creates coupling where Service A's response time depends on Service B's latency. An asynchronous approach (message queues) would decouple response times but add complexity beyond the assignment scope.
 
@@ -458,7 +484,7 @@ JWTs are stateless, meaning the gateway does not need to maintain session storag
 
 1. **Version Compatibility:** Spring Cloud 2023.0.4 introduced a Gateway version (4.1.6) that required Spring Framework 6.2.x, while Spring Boot 3.2.0 shipped with Framework 6.1.x. This caused a `NoSuchMethodError` at runtime in the Gateway's routing filter. The fix was upgrading to Spring Boot 3.4.4 with Spring Cloud 2024.0.1 — a reminder that in the Spring Cloud ecosystem, the BOM (Bill of Materials) must be version-aligned across all services.
 
-2. **Multi-Instance Data Consistency:** Deploying two Catalog Service instances with H2 in-memory databases meant each instance had its own isolated data. A reading list created on instance 1 would not exist on instance 2. The solution was introducing a shared PostgreSQL database, which aligns with the Twelve-Factor App principle of treating backing services as attached resources (Wiggins, 2017).
+2. **Multi-Instance Data Consistency:** Early development used H2 in-memory databases, meaning each Catalog Service instance had isolated data — a reading list created on instance 1 would not exist on instance 2. The solution was introducing shared PostgreSQL databases for all services, which aligns with the Twelve-Factor App principle of treating backing services as attached resources (Wiggins, 2017). This is now fully resolved in the current architecture.
 
 3. **Fallback Transaction Management:** The circuit breaker's fallback method initially failed because it ran outside the original transaction boundary. The fallback needed its own `@Transactional` annotation to persist data. Additionally, Resilience4j's `@CircuitBreaker` annotation does not intercept private methods (due to Spring AOP's proxy-based model), which required restructuring the code to handle Feign failures via try-catch in private helper methods.
 
@@ -466,7 +492,6 @@ JWTs are stateless, meaning the gateway does not need to maintain session storag
 
 - No automated end-to-end testing across services in a containerised environment
 - No container orchestration — Kubernetes would provide self-healing, auto-scaling, and rolling updates
-- No centralised log aggregation — debugging requires checking logs across multiple containers
 - No rate limiting or request throttling at the gateway
 - No service mesh for advanced traffic management, mTLS, or observability at the network layer
 
@@ -476,9 +501,7 @@ JWTs are stateless, meaning the gateway does not need to maintain session storag
 
 2. **Asynchronous Events** — Introduce Apache Kafka or RabbitMQ for event-driven communication between services. When a book is updated in Service B, an event would notify Service A asynchronously, reducing temporal coupling and eliminating the synchronous latency dependency.
 
-3. **Centralised Logging** — Add an ELK stack (Elasticsearch, Logstash, Kibana) for aggregated, searchable logs across all services. Combined with distributed tracing, this would provide complete observability: traces for request flow, logs for detailed debugging, and metrics for system-level health.
-
-4. **Mutual TLS** — Implement mTLS between services using a service mesh (Istio or Linkerd) to enforce zero-trust networking. Currently, inter-service communication trusts the Docker network boundary, which would be insufficient in a shared infrastructure environment.
+3. **Mutual TLS** — Implement mTLS between services using a service mesh (Istio or Linkerd) to enforce zero-trust networking. Currently, inter-service communication trusts the Docker network boundary, which would be insufficient in a shared infrastructure environment.
 """
         },
         {
@@ -489,7 +512,7 @@ JWTs are stateless, meaning the gateway does not need to maintain session storag
 **Repository Structure:**
 - `eureka-server/` - Service Discovery (Netflix Eureka)
 - `config-server/` - Centralised Configuration (Spring Cloud Config)
-- `api-gateway/` - API Gateway with JWT authentication (Spring Cloud Gateway)
+- `api-gateway/` - API Gateway with OAuth2 Resource Server JWT authentication (Spring Cloud Gateway)
 - `catalog-service/` - Service A (Reading Lists, Recommendations, Feign client, Resilience4j)
 - `library-api/` - Service B (Enhanced with Eureka, Config, Tracing)
 - `docker-compose.yml` - Full system orchestration

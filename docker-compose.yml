@@ -51,6 +51,23 @@ services:
       retries: 5
       start_period: 10s
 
+  # Database for Library API
+  library-db:
+    image: postgres:16-alpine
+    container_name: library-db
+    environment:
+      - POSTGRES_DB=librarydb
+      - POSTGRES_USER=library
+      - POSTGRES_PASSWORD=library
+    networks:
+      - cloud-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library -d librarydb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
   # Distributed Tracing
   zipkin:
     image: openzipkin/zipkin:latest
@@ -67,14 +84,23 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
       - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://library-db:5432/librarydb
+      - SPRING_DATASOURCE_USERNAME=library
+      - SPRING_DATASOURCE_PASSWORD=library
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=create-drop
+      - SPRING_SQL_INIT_MODE=always
+      - SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION=true
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
     depends_on:
       eureka-server:
         condition: service_healthy
       config-server:
+        condition: service_healthy
+      library-db:
         condition: service_healthy
     networks:
       - cloud-network
@@ -132,6 +158,46 @@ services:
         condition: service_healthy
       config-server:
         condition: service_healthy
+    networks:
+      - cloud-network
+
+  # Log Aggregation
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - cloud-network
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - cloud-network
+
+  # Dashboards & Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
     networks:
       - cloud-network
 

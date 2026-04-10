@@ -81,7 +81,7 @@ def create_system_architecture():
     d.add(String(gw_x + 50, gw_y + 30, 'API Gateway',
                  fontSize=9, fillColor=TEXT_COLOR, textAnchor='middle',
                  fontName='Helvetica-Bold'))
-    d.add(String(gw_x + 50, gw_y + 17, ':8080 | JWT | lb://',
+    d.add(String(gw_x + 50, gw_y + 17, ':8080 | OAuth2/JWT | lb://',
                  fontSize=7, fillColor=BORDER, textAnchor='middle',
                  fontName='Helvetica'))
     d.add(String(gw_x + 50, gw_y + 6, 'Load Balanced Routing',
@@ -124,7 +124,7 @@ def create_system_architecture():
     d.add(String(lib_x + svc_w / 2, lib_y + 15, 'Books & Loans',
                  fontSize=7, fillColor=PRIMARY, textAnchor='middle',
                  fontName='Helvetica-Oblique'))
-    d.add(String(lib_x + svc_w / 2, lib_y + 4, 'H2 Database',
+    d.add(String(lib_x + svc_w / 2, lib_y + 4, 'PostgreSQL',
                  fontSize=6, fillColor=BORDER, textAnchor='middle',
                  fontName='Helvetica'))
 
@@ -184,7 +184,7 @@ def create_system_architecture():
     d.add(String(db_x + 32, db_y + 24, 'PostgreSQL',
                  fontSize=8, fillColor=TEXT_COLOR, textAnchor='middle',
                  fontName='Helvetica-Bold'))
-    d.add(String(db_x + 32, db_y + 12, 'Shared DB',
+    d.add(String(db_x + 32, db_y + 12, 'All Services',
                  fontSize=7, fillColor=HexColor('#805ad5'), textAnchor='middle',
                  fontName='Helvetica'))
 
@@ -193,16 +193,29 @@ def create_system_architecture():
                 color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
     _draw_arrow(d, cat2_x + svc_w, cat2_y + 25, db_x, db_y + 20,
                 color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
+    # Arrow: Library API -> DB
+    _draw_arrow(d, lib_x + svc_w, lib_y + 10, db_x + 10, db_y + 40,
+                color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
 
-    # --- Zipkin ---
-    d.add(Rect(390, infra_y, 65, box_h, rx=6, ry=6,
+    # --- Observability Stack ---
+    obs_x = 385
+    d.add(Rect(obs_x, infra_y - 52, 75, 92, rx=6, ry=6,
                fillColor=LIGHT_GRAY, strokeColor=BORDER, strokeWidth=1))
-    d.add(String(390 + 32, infra_y + 22, 'Zipkin',
-                 fontSize=9, fillColor=TEXT_COLOR, textAnchor='middle',
+    d.add(String(obs_x + 37, infra_y + 30, 'Observability',
+                 fontSize=7, fillColor=TEXT_COLOR, textAnchor='middle',
                  fontName='Helvetica-Bold'))
-    d.add(String(390 + 32, infra_y + 9, ':9411',
+    d.add(String(obs_x + 37, infra_y + 14, 'Zipkin :9411',
                  fontSize=7, fillColor=BORDER, textAnchor='middle',
                  fontName='Helvetica'))
+    d.add(String(obs_x + 37, infra_y + 2, 'Grafana :3000',
+                 fontSize=7, fillColor=BORDER, textAnchor='middle',
+                 fontName='Helvetica'))
+    d.add(String(obs_x + 37, infra_y - 10, 'Loki :3100',
+                 fontSize=7, fillColor=BORDER, textAnchor='middle',
+                 fontName='Helvetica'))
+    d.add(String(obs_x + 37, infra_y - 24, 'Traces + Logs',
+                 fontSize=6, fillColor=SECONDARY, textAnchor='middle',
+                 fontName='Helvetica-Oblique'))
 
     # --- Legend ---
     ly = 8
@@ -441,7 +454,7 @@ def create_trace_timeline():
                      fontSize=7, fillColor=TEXT_COLOR, textAnchor='middle',
                      fontName='Helvetica-Bold'))
 
-    d.add(String(axis_left, height - 28,
+    d.add(String(axis_left, height - 18,
                  'Trace ID: 69ca90f8...  (same ID propagated across all services via HTTP headers)',
                  fontSize=7, fillColor=BORDER, textAnchor='start',
                  fontName='Helvetica-Oblique'))
