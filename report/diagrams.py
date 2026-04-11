@@ -169,11 +169,13 @@ def create_system_architecture():
                 color=ORANGE, stroke_width=1.5)
     _draw_arrow(d, cat2_x + svc_w - 10, cat2_y + 45, lib_x + svc_w - 10, lib_y,
                 color=ORANGE, stroke_width=1.0, head_size=5)
-    d.add(String(lib_x + svc_w + 5, (cat1_y + 45 + lib_y) / 2, 'Feign +',
-                 fontSize=7, fillColor=ORANGE, textAnchor='start',
+    feign_label_x = (cat1_x + svc_w / 2 + 20 + lib_x + svc_w / 2 + 20) / 2 + 15
+    feign_label_y = (cat1_y + 45 + lib_y) / 2
+    d.add(String(feign_label_x, feign_label_y + 5, 'Feign +',
+                 fontSize=7, fillColor=ORANGE, textAnchor='middle',
                  fontName='Helvetica-Bold'))
-    d.add(String(lib_x + svc_w + 5, (cat1_y + 45 + lib_y) / 2 - 10, 'Circuit Breaker',
-                 fontSize=7, fillColor=ORANGE, textAnchor='start',
+    d.add(String(feign_label_x, feign_label_y - 5, 'Circuit Breaker',
+                 fontSize=7, fillColor=ORANGE, textAnchor='middle',
                  fontName='Helvetica-Oblique'))
 
     # --- Shared Database (PostgreSQL) ---
