@@ -1,5 +1,7 @@
 services:
-  # Service Discovery
+  # ============================================
+  # 1. Service Discovery
+  # ============================================
   eureka-server:
     build: ./eureka-server
     container_name: eureka-server
@@ -14,7 +16,9 @@ services:
       retries: 5
       start_period: 30s
 
-  # Configuration Server
+  # ============================================
+  # 2. Configuration Server
+  # ============================================
   config-server:
     build: ./config-server
     container_name: config-server
@@ -34,50 +38,29 @@ services:
       retries: 5
       start_period: 30s
 
-  # Shared Database for Catalog Service (supports multiple instances)
-  catalog-db:
-    image: postgres:16-alpine
-    container_name: catalog-db
-    environment:
-      - POSTGRES_DB=catalogdb
-      - POSTGRES_USER=catalog
-      - POSTGRES_PASSWORD=catalog
-    networks:
-      - cloud-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U catalog -d catalogdb"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
-
-  # Database for Library API
-  library-db:
-    image: postgres:16-alpine
-    container_name: library-db
-    environment:
-      - POSTGRES_DB=librarydb
-      - POSTGRES_USER=library
-      - POSTGRES_PASSWORD=library
-    networks:
-      - cloud-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U library -d librarydb"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
-
-  # Distributed Tracing
-  zipkin:
-    image: openzipkin/zipkin:latest
-    container_name: zipkin
+  # ============================================
+  # 3. API Gateway (Spring Cloud Gateway + OAuth2)
+  # ============================================
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
     ports:
-      - "9411:9411"
+      - "8080:8080"
+    environment:
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
     networks:
       - cloud-network
 
-  # Library API (Service B)
+  # ============================================
+  # 4. Library API — Service B (Books & Loans)
+  # ============================================
   library-api:
     build: ./library-api
     container_name: library-api
@@ -111,7 +94,9 @@ services:
       retries: 5
       start_period: 40s
 
-  # Catalog Service (Service A) - deployed with 2 instances for load balancing
+  # ============================================
+  # 5. Catalog Service — Service A (2 replicas)
+  # ============================================
   catalog-service:
     build: ./catalog-service
     environment:
@@ -143,25 +128,17 @@ services:
     deploy:
       replicas: 2
 
-  # API Gateway
-  api-gateway:
-    build: ./api-gateway
-    container_name: api-gateway
+  # ============================================
+  # 6. Observability Stack
+  # ============================================
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
     ports:
-      - "8080:8080"
-    environment:
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      config-server:
-        condition: service_healthy
+      - "9411:9411"
     networks:
       - cloud-network
 
-  # Log Aggregation
   loki:
     image: grafana/loki:2.9.0
     container_name: loki
@@ -185,7 +162,6 @@ services:
     networks:
       - cloud-network
 
-  # Dashboards & Visualization
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -200,6 +176,41 @@ services:
       - loki
     networks:
       - cloud-network
+
+  # ============================================
+  # 7. Databases
+  # ============================================
+  library-db:
+    image: postgres:16-alpine
+    container_name: library-db
+    environment:
+      - POSTGRES_DB=librarydb
+      - POSTGRES_USER=library
+      - POSTGRES_PASSWORD=library
+    networks:
+      - cloud-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library -d librarydb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: catalog-db
+    environment:
+      - POSTGRES_DB=catalogdb
+      - POSTGRES_USER=catalog
+      - POSTGRES_PASSWORD=catalog
+    networks:
+      - cloud-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalog -d catalogdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
 networks:
   cloud-network:

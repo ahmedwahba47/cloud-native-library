@@ -178,25 +178,35 @@ def create_system_architecture():
                  fontSize=7, fillColor=ORANGE, textAnchor='middle',
                  fontName='Helvetica-Oblique'))
 
-    # --- Shared Database (PostgreSQL) ---
-    db_x, db_y = 390, 55
-    # Cylinder shape for database
-    d.add(Rect(db_x, db_y, 65, 40, rx=3, ry=3,
+    # --- Library Database (PostgreSQL) — next to Library API ---
+    libdb_x, libdb_y = 390, 105
+    d.add(Rect(libdb_x, libdb_y, 65, 35, rx=3, ry=3,
                fillColor=HexColor('#faf5ff'), strokeColor=HexColor('#805ad5'), strokeWidth=1.5))
-    d.add(String(db_x + 32, db_y + 24, 'PostgreSQL',
-                 fontSize=8, fillColor=TEXT_COLOR, textAnchor='middle',
+    d.add(String(libdb_x + 32, libdb_y + 22, 'library-db',
+                 fontSize=7, fillColor=TEXT_COLOR, textAnchor='middle',
                  fontName='Helvetica-Bold'))
-    d.add(String(db_x + 32, db_y + 12, 'All Services',
-                 fontSize=7, fillColor=HexColor('#805ad5'), textAnchor='middle',
+    d.add(String(libdb_x + 32, libdb_y + 11, 'PostgreSQL',
+                 fontSize=6, fillColor=HexColor('#805ad5'), textAnchor='middle',
                  fontName='Helvetica'))
 
-    # Arrows: Both catalog instances -> DB
-    _draw_arrow(d, cat1_x + svc_w, cat1_y + 15, db_x, db_y + 35,
+    # --- Catalog Database (PostgreSQL) — next to Catalog Service ---
+    catdb_x, catdb_y = 390, 62
+    d.add(Rect(catdb_x, catdb_y, 65, 35, rx=3, ry=3,
+               fillColor=HexColor('#faf5ff'), strokeColor=HexColor('#805ad5'), strokeWidth=1.5))
+    d.add(String(catdb_x + 32, catdb_y + 22, 'catalog-db',
+                 fontSize=7, fillColor=TEXT_COLOR, textAnchor='middle',
+                 fontName='Helvetica-Bold'))
+    d.add(String(catdb_x + 32, catdb_y + 11, 'PostgreSQL',
+                 fontSize=6, fillColor=HexColor('#805ad5'), textAnchor='middle',
+                 fontName='Helvetica'))
+
+    # Arrow: Library API -> library-db (top DB, next to Library API)
+    _draw_arrow(d, lib_x + svc_w, lib_y + 10, libdb_x, libdb_y + 20,
                 color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
-    _draw_arrow(d, cat2_x + svc_w, cat2_y + 25, db_x, db_y + 20,
+    # Arrows: Both catalog instances -> catalog-db (bottom DB, next to Catalog)
+    _draw_arrow(d, cat1_x + svc_w, cat1_y + 25, catdb_x, catdb_y + 10,
                 color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
-    # Arrow: Library API -> DB
-    _draw_arrow(d, lib_x + svc_w, lib_y + 10, db_x + 10, db_y + 40,
+    _draw_arrow(d, cat2_x + svc_w, cat2_y + 20, catdb_x, catdb_y + 25,
                 color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
 
     # --- Observability Stack ---
