@@ -97,7 +97,7 @@ def create_system_architecture():
     d.add(String(220 + svc_w / 2, infra_y + 22, 'Eureka Server',
                  fontSize=9, fillColor=TEXT_COLOR, textAnchor='middle',
                  fontName='Helvetica-Bold'))
-    d.add(String(220 + svc_w / 2, infra_y + 9, ':8761 | Service Registry',
+    d.add(String(220 + svc_w / 2, infra_y + 9, ':8761 | Service Discovery',
                  fontSize=7, fillColor=BORDER, textAnchor='middle',
                  fontName='Helvetica'))
 
