@@ -203,10 +203,10 @@ def create_system_architecture():
     # Arrow: Library API -> library-db (top DB, next to Library API)
     _draw_arrow(d, lib_x + svc_w, lib_y + 10, libdb_x, libdb_y + 20,
                 color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
-    # Arrows: Both catalog instances -> catalog-db (bottom DB, next to Catalog)
-    _draw_arrow(d, cat1_x + svc_w, cat1_y + 25, catdb_x, catdb_y + 10,
+    # Arrows: Both catalog instances -> catalog-db (converge at same point)
+    _draw_arrow(d, cat1_x + svc_w, cat1_y + 25, catdb_x, catdb_y + 17,
                 color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
-    _draw_arrow(d, cat2_x + svc_w, cat2_y + 20, catdb_x, catdb_y + 25,
+    _draw_arrow(d, cat2_x + svc_w, cat2_y + 20, catdb_x, catdb_y + 17,
                 color=HexColor('#805ad5'), stroke_width=1.0, head_size=5)
 
     # --- Observability Stack ---
