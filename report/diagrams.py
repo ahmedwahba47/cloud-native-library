@@ -201,7 +201,7 @@ def create_system_architecture():
 
     # --- Observability Stack ---
     obs_x = 385
-    d.add(Rect(obs_x, infra_y - 52, 75, 92, rx=6, ry=6,
+    d.add(Rect(obs_x, infra_y - 62, 75, 102, rx=6, ry=6,
                fillColor=LIGHT_GRAY, strokeColor=BORDER, strokeWidth=1))
     d.add(String(obs_x + 37, infra_y + 30, 'Observability',
                  fontSize=7, fillColor=TEXT_COLOR, textAnchor='middle',
@@ -215,7 +215,10 @@ def create_system_architecture():
     d.add(String(obs_x + 37, infra_y - 10, 'Loki :3100',
                  fontSize=7, fillColor=BORDER, textAnchor='middle',
                  fontName='Helvetica'))
-    d.add(String(obs_x + 37, infra_y - 24, 'Traces + Logs',
+    d.add(String(obs_x + 37, infra_y - 22, 'Promtail',
+                 fontSize=7, fillColor=BORDER, textAnchor='middle',
+                 fontName='Helvetica'))
+    d.add(String(obs_x + 37, infra_y - 34, 'Traces + Logs',
                  fontSize=6, fillColor=SECONDARY, textAnchor='middle',
                  fontName='Helvetica-Oblique'))
 
