@@ -45,19 +45,19 @@ The system architecture diagram above illustrates how the seven components commu
 
 **Component Responsibilities:**
 
-1. **Eureka Server (Port 8761)** - Service Discovery
+1. **Eureka Server (Port 8761)** - Service Discovery (Spring Cloud Netflix Eureka)
    - Maintains a registry of all running service instances
    - Services register at startup and send periodic heartbeats
    - Clients query Eureka to resolve service names to network locations (Netflix, 2024)
    - Eliminates hardcoded URLs, enabling dynamic scaling
 
-2. **Config Server (Port 8888)** - Centralised Configuration
+2. **Config Server (Port 8888)** - Centralised Configuration (Spring Cloud Config)
    - Serves configuration properties to all services via HTTP
    - Uses native file-based storage with environment-specific profiles
    - Registered with Eureka for discoverability
    - Enables configuration changes without redeployment
 
-3. **API Gateway (Port 8080)** - Entry Point
+3. **API Gateway (Port 8080)** - Entry Point (Spring Cloud Gateway)
    - Single entry point for all client requests
    - Routes requests to services using Eureka service discovery (lb:// URIs) (Spring, 2024b)
    - Enforces authentication using Spring Security's OAuth2 Resource Server with JWT validation
@@ -68,7 +68,7 @@ The system architecture diagram above illustrates how the seven components commu
    - Existing REST API from Assignment 1, enhanced with Eureka registration and distributed tracing
    - PostgreSQL database for all environments
 
-5. **Catalog Service - Service A (Port 8082)** - Reading Lists and Recommendations
+5. **Catalog Service - Service A (Port 8082)** - Reading Lists and Recommendations (Spring Boot + OpenFeign + Resilience4j)
    - Owns ReadingList and Recommendation entities
    - Calls Library API via Feign client to verify book existence
    - Implements circuit breaker and retry patterns for inter-service calls
